@@ -82,33 +82,82 @@ python consolidate.py --vault vault
 reads the 10 reports and atomically generates the `topics/`, `tools/` and
 `entities/` hub pages plus the `TOP-TOPICS.md` leaderboard.
 
-### Stage 4 - Install the skill (only after you have verified the vault)
+### Stage 4 - Install the recall skill
 
-Not done automatically - you decide when Claude should auto-consult the vault.
-When ready, create `~/.claude/skills/claude-code-brain/SKILL.md` pointing at
-your vault path. A starting template:
+The `claude-brain` skill makes Claude Code auto-consult the vault *before*
+responding to project work - but only when you ask for it.
 
-```markdown
----
-name: claude-code-brain
-description: >
-  Searchable archive of past Claude Code sessions. Use when the user refers
-  to earlier work, asks "how did we do X before", or starts a project that
-  has prior history in the vault.
----
+**What it does.** When your message contains a recall trigger phrase, the
+skill activates and Claude reads vault history before answering:
 
-# Claude Code Brain
+| Trigger phrase | Example |
+|----------------|---------|
+| `let's work on` | "let's work on Vex" |
+| `last time` | "what was I doing last time on crux" |
+| `continue with` | "continue with the theme system" |
+| `check my brain` | "check my brain for the playwright audit" |
+| `what did we do on` | "what did we do on system32" |
+| `remind me about` | "remind me about the export pipeline" |
 
-The vault at `<your vault path>` indexes every past Claude Code session.
+On a trigger, Claude follows a fixed read protocol: `vault/README.md` to
+resolve the project -> that project's `_project.md` rollup -> the 3 most
+recent session files -> any named topic/tool/entity hub pages. It is
+**read-only** (never writes to the vault), **budget-capped** (~10,000 tokens
+per session start), and **fails silent** - if the vault is missing or
+corrupt, Claude just works normally with no error.
 
-- `README.md` lists all projects.
-- `TOP-TOPICS.md` ranks topics by frequency.
-- `projects/<name>/_project.md` summarizes a project's sessions.
-- `topics/`, `tools/`, `entities/` are hub pages linking related sessions.
+Without a trigger phrase, the skill stays dormant and Claude behaves as usual.
 
-When starting work on a known project, read its `_project.md` first to
-recover prior context instead of asking the user to re-explain it.
+**Install.** The skill lives at `~/.claude/skills/claude-brain/SKILL.md`
+(Windows: `C:\Users\<you>\.claude\skills\claude-brain\SKILL.md`). A
+version-controlled copy is kept in this repo at
+[`skills/claude-brain/SKILL.md`](skills/claude-brain/SKILL.md). To install or
+re-install, copy that file into your `~/.claude/skills/claude-brain/`
+directory and start a new Claude Code session.
+
+The skill references the vault by absolute path. If your vault is not at
+`C:\Users\USER\IdeaProjects\ClaudeCode-Brain\vault\`, edit the path in your
+installed `SKILL.md`.
+
+**Verify it is installed.**
+
+```sh
+claude /skills list
 ```
+
+`claude-brain` should appear in the list. You can also confirm the file
+exists at `~/.claude/skills/claude-brain/SKILL.md`.
+
+**Manual test.** Start a new Claude Code session in any folder and type a
+trigger, e.g. `let's continue with Vex`. Claude should open with a recap of
+Vex's recent work (drawn from `projects/vex/_project.md` and recent sessions)
+instead of asking you to re-explain the project. If the brain is not
+consulted, the test fails - re-check the install and trigger wording.
+
+**Uninstall.** Delete the skill directory and start a new session:
+
+```sh
+rm -r ~/.claude/skills/claude-brain      # macOS/Linux
+Remove-Item -Recurse ~/.claude/skills/claude-brain   # PowerShell
+```
+
+The repo copy under `skills/` is just for version control - removing it is
+optional and does not affect an installed skill.
+
+### Stage 5 - Refresh the brain (manual)
+
+Once the skill is installed, keep the vault current with one command:
+
+```sh
+python sync-vault.py
+```
+
+This runs `export.py` (re-export history), then `secret_scan.py` (redact
+secrets), then `consolidate.py` (rebuild hub pages). It is a **manual
+command** - deliberately not a cron job. The `consolidate.py` step only runs
+if Stage 3 backlink reports exist under `vault/_build/reports/`; otherwise it
+is skipped and existing hub pages are left untouched (re-run Stage 3 to
+regenerate them).
 
 ## Safety
 
