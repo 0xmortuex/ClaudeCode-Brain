@@ -1,0 +1,7 @@
+# The generated vault and build artifacts stay local - they contain your
+# full Claude Code history and must never be committed from this repo.
+vault/
+_build/
+*.tmp
+__pycache__/
+*.pyc
